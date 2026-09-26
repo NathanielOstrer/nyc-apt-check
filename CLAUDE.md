@@ -44,16 +44,16 @@ Run `typecheck`, `test` and `test:e2e` before you push. CI runs the same three. 
 
 ## Next steps
 
-1. Go live at `apt.nathaniel.nyc`. The deploy notes below list what is left.
-2. Add NYC's 2015 preliminary FEMA maps and the DEP stormwater flood maps (`9i7c-xyvv`) to the flood check. Stormwater flooding hits basement apartments far from the coast.
-3. Add NYC OER cleanup sites (`3279-pp7v`). It has no point column, so filter `latitude::number` and `longitude::number` in a bounding box.
-4. Add DOB violations, ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
-5. Tune the thresholds against a set of known-bad and known-good buildings. They are first guesses.
-6. If the 311 query gets slower, cache results per address in `sessionStorage`.
+1. Add NYC's 2015 preliminary FEMA maps and the DEP stormwater flood maps (`9i7c-xyvv`) to the flood check. Stormwater flooding hits basement apartments far from the coast.
+2. Add NYC OER cleanup sites (`3279-pp7v`). It has no point column, so filter `latitude::number` and `longitude::number` in a bounding box.
+3. Add DOB violations, ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
+4. Tune the thresholds against a set of known-bad and known-good buildings. They are first guesses.
+5. If the 311 query gets slower, cache results per address in `sessionStorage`.
+6. Bump `actions/checkout`, `setup-node`, `upload-pages-artifact` and `deploy-pages` to their Node 24 majors. CI warns that the v4/v3 releases target the deprecated Node 20. It still passes.
 
 ### Deploy notes
 
-The repo went public on 2026-09-26, because GitHub Free does not serve Pages from a private repo. Pages is on with `build_type=workflow`.
+Live at https://apt.nathaniel.nyc since 2026-09-26. The repo went public on 2026-09-26, because GitHub Free does not serve Pages from a private repo. Pages is on with `build_type=workflow`.
 
 `.github/workflows/deploy.yml` tests, builds and deploys to Pages on every push to `main`. `live.yml` runs the live contract tests every Monday. Pushing a workflow file needs the `workflow` scope on the `gh` token.
 
