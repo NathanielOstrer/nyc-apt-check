@@ -44,13 +44,24 @@ Run `typecheck`, `test` and `test:e2e` before you push. CI runs the same three. 
 
 ## Next steps
 
-1. Go live at `apt.nathaniel.nyc`. See the deploy notes below.
+1. Go live at `apt.nathaniel.nyc`. Blocked on two decisions by the owner, listed in the deploy notes below.
 2. Add NYC's 2015 preliminary FEMA maps and the DEP stormwater flood maps (`9i7c-xyvv`) to the flood check. Stormwater flooding hits basement apartments far from the coast.
 3. Add NYC OER cleanup sites (`3279-pp7v`). It has no point column, so filter `latitude::number` and `longitude::number` in a bounding box.
-4. Add DOB violations and ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
+4. Add DOB violations, ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
 5. Tune the thresholds against a set of known-bad and known-good buildings. They are first guesses.
-6. The 311 query can take several seconds. If it gets slower, cache per address in `sessionStorage`.
+6. If the 311 query gets slower, cache results per address in `sessionStorage`.
 
 ### Deploy notes
 
-GitHub Pages builds from `.github/workflows/deploy.yml` on every push to `main`. The site must live on a subdomain of nathaniel.nyc, because the apex is the personal site behind Cloudflare.
+`.github/workflows/deploy.yml` (test, build, deploy to Pages) and `live.yml` (weekly contract tests) are written but **not committed**. Two things block them:
+
+- The local `gh` token has no `workflow` scope, and GitHub rejects any push that adds a workflow file. Run `gh auth refresh -h github.com -s workflow` in an interactive terminal. Then commit `.github/` and push.
+- The account is on the free plan, and GitHub Pages is not available for private repos on that plan. The owner must pick one: make the repo public, pay for GitHub Pro, or publish `dist/` to a separate public repo.
+
+After Pages is on, do these steps in order:
+
+1. Run `gh api -X PUT repos/NathanielOstrer/nyc-apt-check/pages -f cname=apt.nathaniel.nyc`.
+2. In Cloudflare DNS for nathaniel.nyc, add `CNAME apt -> nathanielostrer.github.io` as **DNS only** (grey cloud). If it is proxied, GitHub cannot issue the TLS certificate.
+3. When the certificate is ready, run `gh api -X PUT repos/NathanielOstrer/nyc-apt-check/pages -F https_enforced=true`.
+
+Until step 1 is done, Pages serves the site at `nathanielostrer.com/nyc-apt-check/`, because the user site repo carries a CNAME for nathanielostrer.com. The apex nathaniel.nyc is the personal site behind Cloudflare. Do not touch it.
