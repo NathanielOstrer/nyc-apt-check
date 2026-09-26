@@ -55,12 +55,12 @@ Run `typecheck`, `test` and `test:e2e` before you push. CI runs the same three. 
 
 The repo went public on 2026-09-26, because GitHub Free does not serve Pages from a private repo. Pages is on with `build_type=workflow`.
 
-`.github/workflows/deploy.yml` (test, build, deploy to Pages) and `live.yml` (weekly contract tests) are written but **not committed**. The local `gh` token has no `workflow` scope, and GitHub rejects any push that adds a workflow file. When the scope is granted (`gh auth refresh -h github.com -s workflow`), commit `.github/` and push. The first deploy runs on that push.
+`.github/workflows/deploy.yml` tests, builds and deploys to Pages on every push to `main`. `live.yml` runs the live contract tests every Monday. Pushing a workflow file needs the `workflow` scope on the `gh` token.
 
-Then do these steps in order:
+The custom domain was set up with these steps:
 
 1. Run `gh api -X PUT repos/NathanielOstrer/nyc-apt-check/pages -f cname=apt.nathaniel.nyc`.
-2. In Cloudflare DNS for nathaniel.nyc, add `CNAME apt -> nathanielostrer.github.io` as **DNS only** (grey cloud). If it is proxied, GitHub cannot issue the TLS certificate. The API token lives in the macOS Keychain under the service name `cloudflare-api-token`. Read it with `security find-generic-password -s cloudflare-api-token -w`, and never print it.
+2. In Cloudflare DNS for nathaniel.nyc, add `CNAME apt -> nathanielostrer.github.io` as **DNS only** (grey cloud). If it is proxied, GitHub cannot issue the TLS certificate. The Cloudflare API token (DNS edit and zone read, nathaniel.nyc only) is in `~/.config/cloudflare/api-token`, mode 600. Read it with `$(tr -d '[:space:]' < ~/.config/cloudflare/api-token)` inside the command that uses it. Never print it. The Keychain is locked over SSH, so it is not used.
 3. When the certificate is ready, run `gh api -X PUT repos/NathanielOstrer/nyc-apt-check/pages -F https_enforced=true`.
 
 Until step 1 is done, Pages serves the site at `nathanielostrer.com/nyc-apt-check/`, because the user site repo carries a CNAME for nathanielostrer.com. The apex nathaniel.nyc is the personal site behind Cloudflare. Do not touch it.

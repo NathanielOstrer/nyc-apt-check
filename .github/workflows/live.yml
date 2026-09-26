@@ -1,0 +1,23 @@
+name: Live API contract tests
+
+# The app depends on a dozen public datasets that can rename columns or move without notice.
+# This runs the checks against the real APIs every Monday so drift shows up as a failed run.
+on:
+  schedule:
+    - cron: '17 13 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:live
