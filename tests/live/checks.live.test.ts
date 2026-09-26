@@ -6,10 +6,12 @@
 import { describe, expect, it } from 'vitest'
 import { CHECKS } from '../../src/checks'
 import { aep } from '../../src/checks/building'
+import { E_DESIGNATIONS, eDesignation } from '../../src/checks/eDesignation'
 import { flood } from '../../src/checks/flood'
 import { stateCleanup } from '../../src/checks/stateCleanup'
 import { superfund } from '../../src/checks/superfund'
 import type { Deps, Level, Place } from '../../src/checks/types'
+import { NYC_OPEN_DATA, soql } from '../../src/lib/api'
 import { autocomplete, geocode } from '../../src/lib/geocode'
 
 const deps: Deps = { fetch, now: new Date() }
@@ -54,6 +56,18 @@ describe('environment checks', () => {
     expect(result.level).not.toBe('clear')
     expect(result.summary).toMatch(/Gowanus Canal/)
     expect(result.mapFeatures?.some((f) => f.kind === 'polygon')).toBe(true)
+  })
+
+  it('flags a hazardous materials E-designation as medium', async () => {
+    // Pick any lot the dataset marks hazmat, so no address is hard-coded. The flag type broke once.
+    const [row] = await soql<{ bbl: string }>(deps, NYC_OPEN_DATA, E_DESIGNATIONS, {
+      $select: 'bbl',
+      $where: 'hazmat_code = true',
+      $limit: '1',
+    })
+    const result = await eDesignation.run({ ...GOWANUS, bbl: row.bbl }, deps)
+    expect(result.level).toBe('medium')
+    expect(result.summary).toMatch(/hazardous materials/)
   })
 
   it('finds state brownfield sites around the canal', async () => {

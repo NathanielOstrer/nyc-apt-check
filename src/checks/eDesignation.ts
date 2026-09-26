@@ -6,11 +6,14 @@ export const E_DESIGNATIONS = 'hxm3-23vy'
 
 interface Row {
   enumber: string
-  hazmat_code: string
-  air_code: string
-  noise_code: string
+  hazmat_code: boolean | string
+  air_code: boolean | string
+  noise_code: boolean | string
   description?: string
 }
+
+/** Socrata returns these flags as JSON booleans. Accept "true" too, in case the export changes. */
+const flag = (value: boolean | string | undefined) => value === true || String(value).toLowerCase() === 'true'
 
 export const eDesignation: Check = {
   id: 'e-designation',
@@ -32,16 +35,18 @@ export const eDesignation: Check = {
       return { level: 'clear', summary: 'The lot has no E-designation.', details: [] }
     }
 
-    const hazmat = rows.some((r) => r.hazmat_code === 'True')
+    const hazmat = rows.some((r) => flag(r.hazmat_code))
     const kinds = [
       hazmat && 'hazardous materials',
-      rows.some((r) => r.air_code === 'True') && 'air quality',
-      rows.some((r) => r.noise_code === 'True') && 'noise',
+      rows.some((r) => flag(r.air_code)) && 'air quality',
+      rows.some((r) => flag(r.noise_code)) && 'noise',
     ].filter(Boolean)
     const level: Level = hazmat ? 'medium' : 'low'
     const summary = hazmat
       ? 'The lot has a hazardous materials E-designation. The city found possible soil or groundwater contamination here. Redevelopment needs a cleanup plan.'
-      : `The lot has an E-designation for ${kinds.join(' and ')}.`
+      : kinds.length
+        ? `The lot has an E-designation for ${kinds.join(' and ')}.`
+        : 'The lot has an E-designation.'
 
     return {
       level,

@@ -174,7 +174,8 @@ describe('eDesignation', () => {
     const { deps, calls } = depsWith([
       {
         match: socrata(E_DESIGNATIONS),
-        body: [{ enumber: 'E-99', hazmat_code: 'True', air_code: 'False', noise_code: 'True', description: 'Test' }],
+        // The real API returns JSON booleans.
+        body: [{ enumber: 'E-99', hazmat_code: true, air_code: false, noise_code: true, description: 'Test' }],
       },
     ])
     const r = await eDesignation.run(PLACE, deps)
@@ -186,11 +187,27 @@ describe('eDesignation', () => {
 
   it('is low for a noise-only designation', async () => {
     const { deps } = depsWith([
-      { match: socrata(E_DESIGNATIONS), body: [{ enumber: 'E-1', hazmat_code: 'False', air_code: 'False', noise_code: 'True' }] },
+      { match: socrata(E_DESIGNATIONS), body: [{ enumber: 'E-1', hazmat_code: false, air_code: false, noise_code: true }] },
     ])
     const r = await eDesignation.run(PLACE, deps)
     expect(r.level).toBe('low')
     expect(r.summary).toBe('The lot has an E-designation for noise.')
+  })
+
+  it('also accepts the flags as strings', async () => {
+    const { deps } = depsWith([
+      { match: socrata(E_DESIGNATIONS), body: [{ enumber: 'E-2', hazmat_code: 'True', air_code: 'false', noise_code: 'false' }] },
+    ])
+    expect((await eDesignation.run(PLACE, deps)).level).toBe('medium')
+  })
+
+  it('never leaves the summary unfinished when no flag is set', async () => {
+    const { deps } = depsWith([
+      { match: socrata(E_DESIGNATIONS), body: [{ enumber: 'E-3', hazmat_code: false, air_code: false, noise_code: false }] },
+    ])
+    const r = await eDesignation.run(PLACE, deps)
+    expect(r.level).toBe('low')
+    expect(r.summary).toBe('The lot has an E-designation.')
   })
 
   it('is clear with no designation', async () => {
