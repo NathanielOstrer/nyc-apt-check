@@ -102,6 +102,8 @@ describe('every check', () => {
         expect(LEVELS).toContain(result.level)
         expect(result.summary.length).toBeGreaterThan(10)
         expect(result.summary).not.toMatch(/undefined|NaN/)
+        // A link without a scheme opens a path on this site. The EPA data has links like that.
+        for (const d of result.details) if (typeof d !== 'string') expect(d.url).toMatch(/^https:\/\//)
       })
     }
   }

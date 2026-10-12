@@ -46,6 +46,10 @@ function levelFor(siteclass: string, distance: number): Level {
   return 'low'
 }
 
+/** The site record in DEC's remediation search. The old extapps.dec.ny.gov link now lands on a "this app has moved" page. */
+export const decSiteUrl = (programNumber: string) =>
+  `https://appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=${encodeURIComponent(programNumber)}`
+
 export const stateCleanup: Check = {
   id: 'state-cleanup',
   title: 'State cleanup sites',
@@ -92,7 +96,7 @@ export const stateCleanup: Check = {
         const status = CLASS_TEXT[s.siteclass] ?? `Class ${s.siteclass}.`
         return {
           text: `${s.program_facility_name} (${program}): ${formatDistance(s.distance)}. ${status}`,
-          url: `https://extapps.dec.ny.gov/cfmx/extapps/derexternal/haz/details.cfm?pageid=3&progno=${encodeURIComponent(s.program_number)}`,
+          url: decSiteUrl(s.program_number),
         }
       }),
       mapFeatures: sites.map((s) => ({

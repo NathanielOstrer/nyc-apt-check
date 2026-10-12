@@ -20,6 +20,7 @@ interface PointAttrs {
   Status: string
   Latitude: number
   Longitude: number
+  SEMS_ID: number | null
 }
 
 interface Site {
@@ -43,6 +44,27 @@ function levelFor(site: Site): Level {
   return site.deleted ? 'low' : level
 }
 
+// The EPA's own links for these sites redirect to a 403 page on www3.epa.gov (checked 2026-10-12).
+const SITE_URL_OVERRIDES: Record<string, string> = {
+  NYD980763841: 'https://www.epa.gov/hudsonriverpcbs', // Hudson River PCBs
+}
+
+/**
+ * The EPA stores site links without a scheme ("www.epa.gov/superfund/newtown-creek").
+ * A bare link like that is relative in an href, so it opens a path on this site.
+ */
+export function epaSiteUrl(epaId: string, link: string | null | undefined): string | undefined {
+  if (SITE_URL_OVERRIDES[epaId]) return SITE_URL_OVERRIDES[epaId]
+  const trimmed = link?.trim()
+  if (!trimmed) return undefined
+  return /^https?:\/\//i.test(trimmed) ? trimmed.replace(/^http:/i, 'https:') : `https://${trimmed}`
+}
+
+/** The site profile page for a SEMS id. The id is a number in the data and seven digits in the URL. */
+function profileUrl(semsId: number | null): string | undefined {
+  return semsId ? `https://cumulis.epa.gov/supercpad/cursites/csitinfo.cfm?id=${String(semsId).padStart(7, '0')}` : undefined
+}
+
 /** Title-case the EPA's all-caps names: "GOWANUS CANAL" becomes "Gowanus Canal". */
 function tidyName(name: string): string {
   return name === name.toUpperCase() ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : name
@@ -64,7 +86,7 @@ export const superfund: Check = {
         returnGeometry: true,
       }),
       arcgisPointQuery<PointAttrs>(deps, SUPERFUND_POINTS, place.lat, place.lon, {
-        outFields: ['Site_Name', 'Site_EPA_ID', 'Status', 'Latitude', 'Longitude'],
+        outFields: ['Site_Name', 'Site_EPA_ID', 'Status', 'Latitude', 'Longitude', 'SEMS_ID'],
         distance: ONE_MILE_M,
       }),
     ])
@@ -85,7 +107,7 @@ export const superfund: Check = {
           status: STATUS_TEXT[a.NPL_STATUS_CODE] ?? `EPA status code ${a.NPL_STATUS_CODE}.`,
           deleted: a.NPL_STATUS_CODE === 'D',
           distance,
-          url: a.URL_ALIAS_TXT ?? undefined,
+          url: epaSiteUrl(a.EPA_ID, a.URL_ALIAS_TXT),
         })
       }
       if (rings.length) mapFeatures.push({ kind: 'polygon', rings, label: tidyName(a.SITE_NAME), level: 'high' })
@@ -100,6 +122,7 @@ export const superfund: Check = {
         status: `${a.Status}. The EPA has no boundary map for this site, so the distance is to its center point.`,
         deleted: /deleted/i.test(a.Status),
         distance: haversine(place.lat, place.lon, a.Latitude, a.Longitude),
+        url: SITE_URL_OVERRIDES[a.Site_EPA_ID] ?? profileUrl(a.SEMS_ID),
       })
       mapFeatures.push({ kind: 'point', lat: a.Latitude, lon: a.Longitude, label: a.Site_Name, level: 'high' })
     }

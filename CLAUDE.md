@@ -40,7 +40,10 @@ Run `typecheck`, `test` and `test:e2e` before you push. CI runs the same three. 
 - The evacuation zone dataset has polygons coded `X` and `7`. Only 1 to 6 are zones.
 - FEMA NFHL returns the effective 2007 FIRM. NYC uses the 2015 preliminary maps as best available, which are not in this check yet.
 - CARTO basemaps now need an API key. The map uses tile.openstreetmap.org, which is fine for light use with attribution.
-- The HPD Online link format (`search-results?boroId=&block=&lot=`) was checked in a browser on 2026-09-26.
+- The EPA boundary layer stores `URL_ALIAS_TXT` with no scheme (`www.epa.gov/superfund/newtown-creek`). As an href, that opens a path on this site. Put every EPA link through `epaSiteUrl()`. Test fixtures use the bare form on purpose.
+- The EPA's own links for Hudson River PCBs end at a 403 on www3.epa.gov. `SITE_URL_OVERRIDES` in `superfund.ts` points it at `www.epa.gov/hudsonriverpcbs`. Add a site there if its EPA link breaks the same way.
+- NYS DEC retired the `extapps.dec.ny.gov` site pages. Site records are now at `appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=<program_number>` (`decSiteUrl()`). An unknown code goes to the search home page with no error.
+- Every link was checked in a browser on 2026-10-12, including the HPD Online format (`search-results?boroId=&block=&lot=`) and the DEC and EPA site links. A link check needs a browser: HPD and DEC are single-page apps that return 200 for any path. The live tests only assert that each detail link is absolute `https`.
 
 ## Next steps
 

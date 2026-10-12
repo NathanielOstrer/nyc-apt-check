@@ -83,7 +83,13 @@ export async function mockApis(page: Page, opts: MockOptions = {}) {
         return json(route, {
           features: [
             {
-              attributes: { SITE_NAME: 'TEST CANAL', EPA_ID: 'NYTEST', NPL_STATUS_CODE: 'F', URL_ALIAS_TXT: 'https://epa.example/' },
+              attributes: {
+                SITE_NAME: 'TEST CANAL',
+                EPA_ID: 'NYTEST',
+                NPL_STATUS_CODE: 'F',
+                // The real EPA data stores the link with no scheme.
+                URL_ALIAS_TXT: 'www.epa.gov/superfund/test-canal',
+              },
               geometry: { rings: [ring(0.001)] },
             },
           ],

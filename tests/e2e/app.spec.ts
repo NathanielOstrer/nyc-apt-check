@@ -29,6 +29,16 @@ test('picks an address from the suggestions and shows every check', async ({ pag
   await expect(page.locator('[data-check]')).toHaveCount(13)
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
 
+  // Links to a site page go to the source, not to a path on this site.
+  await expect(card(page, 'superfund').locator('.details a')).toHaveAttribute('href', 'https://www.epa.gov/superfund/test-canal')
+  await expect(card(page, 'state-cleanup').locator('.details a').first()).toHaveAttribute(
+    'href',
+    'https://appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=C1',
+  )
+  for (const href of await page.locator('[data-check] a').evaluateAll((as) => as.map((a) => a.getAttribute('href')))) {
+    expect(href).toMatch(/^https:\/\//)
+  }
+
   // The map draws the Superfund polygon and the address marker.
   await expect(page.locator('.leaflet-overlay-pane path')).not.toHaveCount(0)
 

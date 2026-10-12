@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { E_DESIGNATIONS, eDesignation } from '../../src/checks/eDesignation'
 import { EVACUATION_ZONES, FEMA_FLOOD_ZONES, flood, SANDY_INUNDATION } from '../../src/checks/flood'
-import { DEC_REMEDIATION, stateCleanup } from '../../src/checks/stateCleanup'
-import { SUPERFUND_BOUNDARIES, SUPERFUND_POINTS, superfund } from '../../src/checks/superfund'
+import { DEC_REMEDIATION, decSiteUrl, stateCleanup } from '../../src/checks/stateCleanup'
+import { epaSiteUrl, SUPERFUND_BOUNDARIES, SUPERFUND_POINTS, superfund } from '../../src/checks/superfund'
 import { arcgis, depsWith, PLACE, socrata, square } from './fakeFetch'
 
 const { lat, lon } = PLACE
@@ -11,7 +11,7 @@ const NEAR = 0.004
 
 function boundary(id: string, name: string, ring: [number, number][], status = 'F') {
   return {
-    attributes: { SITE_NAME: name, EPA_ID: id, NPL_STATUS_CODE: status, URL_ALIAS_TXT: `https://epa.example/${id}` },
+    attributes: { SITE_NAME: name, EPA_ID: id, NPL_STATUS_CODE: status, URL_ALIAS_TXT: `www.epa.example/superfund/${id}` },
     geometry: { rings: [ring] },
   }
 }
@@ -29,7 +29,7 @@ describe('superfund', () => {
     const r = await superfund.run(PLACE, deps)
     expect(r.level).toBe('high')
     expect(r.summary).toBe('The address is inside the Test Canal Superfund site.')
-    expect(r.details[0]).toEqual({ text: expect.stringContaining('the address is inside'), url: 'https://epa.example/NY1' })
+    expect(r.details[0]).toEqual({ text: expect.stringContaining('the address is inside'), url: 'https://www.epa.example/superfund/NY1' })
     expect(r.mapFeatures).toHaveLength(1)
   })
 
@@ -75,6 +75,15 @@ describe('superfund', () => {
     expect(r.mapFeatures?.[0]).toMatchObject({ kind: 'point' })
   })
 
+  it('links a point site to its EPA profile page by SEMS id', async () => {
+    const { deps } = superfundDeps(
+      [],
+      [{ attributes: { Site_Name: 'Test Plume', Site_EPA_ID: 'NY2', Status: 'NPL Site', Latitude: lat, Longitude: lon, SEMS_ID: 203407 } }],
+    )
+    const r = await superfund.run(PLACE, deps)
+    expect(r.details[0]).toMatchObject({ url: 'https://cumulis.epa.gov/supercpad/cursites/csitinfo.cfm?id=0203407' })
+  })
+
   it('does not list a point site twice when it also has a boundary', async () => {
     const { deps } = superfundDeps(
       [boundary('NY1', 'Test Canal', square(lat, lon, 0.001))],
@@ -93,6 +102,29 @@ describe('superfund', () => {
   it('fails when the EPA service fails', async () => {
     const { deps } = depsWith([{ match: () => true, status: 503 }])
     await expect(superfund.run(PLACE, deps)).rejects.toThrow()
+  })
+})
+
+describe('epaSiteUrl', () => {
+  it('adds https to the bare links the EPA stores', () => {
+    expect(epaSiteUrl('NY1', 'www.epa.gov/superfund/newtown-creek')).toBe('https://www.epa.gov/superfund/newtown-creek')
+  })
+
+  it('keeps an https link and upgrades an http link', () => {
+    expect(epaSiteUrl('NY1', 'https://www.epa.gov/superfund/a')).toBe('https://www.epa.gov/superfund/a')
+    expect(epaSiteUrl('NY1', 'HTTP://www.epa.gov/superfund/a')).toBe('https://www.epa.gov/superfund/a')
+  })
+
+  it('trims whitespace and gives no link for an empty value', () => {
+    expect(epaSiteUrl('NY1', '  www.epa.gov/superfund/a ')).toBe('https://www.epa.gov/superfund/a')
+    expect(epaSiteUrl('NY1', '')).toBeUndefined()
+    expect(epaSiteUrl('NY1', '   ')).toBeUndefined()
+    expect(epaSiteUrl('NY1', null)).toBeUndefined()
+  })
+
+  it('replaces the broken EPA link for the Hudson River PCBs site', () => {
+    expect(epaSiteUrl('NYD980763841', 'www.epa.gov/superfund/hudson')).toBe('https://www.epa.gov/hudsonriverpcbs')
+    expect(epaSiteUrl('NYD980763841', null)).toBe('https://www.epa.gov/hudsonriverpcbs')
   })
 })
 
@@ -122,6 +154,18 @@ describe('stateCleanup', () => {
     expect(r.level).toBe('high')
     expect(r.summary).toContain('1 site is a significant threat.')
     expect(r.details[0]).toMatchObject({ text: expect.stringContaining('(State Superfund)') })
+  })
+
+  it('links each site to its record in the DEC remediation search', async () => {
+    const { deps } = depsWith([{ match: socrata(DEC_REMEDIATION), body: [decSite('C224361', 'A', 0.002)] }])
+    const r = await stateCleanup.run(PLACE, deps)
+    expect(r.details[0]).toMatchObject({
+      url: 'https://appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=C224361',
+    })
+  })
+
+  it('encodes the program number in the DEC link', () => {
+    expect(decSiteUrl('A B&C')).toBe('https://appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=A%20B%26C')
   })
 
   it('is medium for an active cleanup on or next to the lot', async () => {
