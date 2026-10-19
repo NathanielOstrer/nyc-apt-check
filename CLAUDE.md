@@ -42,17 +42,19 @@ Run `typecheck`, `test` and `test:e2e` before you push. CI runs the same three. 
 - CARTO basemaps now need an API key. The map uses tile.openstreetmap.org, which is fine for light use with attribution.
 - The EPA boundary layer stores `URL_ALIAS_TXT` with no scheme (`www.epa.gov/superfund/newtown-creek`). As an href, that opens a path on this site. Put every EPA link through `epaSiteUrl()`. Test fixtures use the bare form on purpose.
 - The EPA's own links for Hudson River PCBs end at a 403 on www3.epa.gov. `SITE_URL_OVERRIDES` in `superfund.ts` points it at `www.epa.gov/hudsonriverpcbs`. Add a site there if its EPA link breaks the same way.
+- The EPA boundary layer stores site names in all caps. `tidyName()` title-cases them and keeps the words in `KEEP_CASE` (PCBs, GE, FMC, USDOE, roman numerals). The points layer already has the EPA's mixed-case spelling, so `tidyName()` passes it through. If a new site name loses an acronym, add the word to `KEEP_CASE` and a row to the `tidyName` test table.
 - NYS DEC retired the `extapps.dec.ny.gov` site pages. Site records are now at `appfactory.dec.ny.gov/DERExternalSearch/ERDDetails?SiteCode=<program_number>` (`decSiteUrl()`). An unknown code goes to the search home page with no error.
 - Every link was checked in a browser on 2026-10-12, including the HPD Online format (`search-results?boroId=&block=&lot=`) and the DEC and EPA site links. A link check needs a browser: HPD and DEC are single-page apps that return 200 for any path. The live tests only assert that each detail link is absolute `https`.
 
 ## Next steps
 
-1. Add NYC's 2015 preliminary FEMA maps and the DEP stormwater flood maps (`9i7c-xyvv`) to the flood check. Stormwater flooding hits basement apartments far from the coast.
-2. Add NYC OER cleanup sites (`3279-pp7v`). It has no point column, so filter `latitude::number` and `longitude::number` in a bounding box.
-3. Add DOB violations, ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
-4. Tune the thresholds against a set of known-bad and known-good buildings. They are first guesses.
-5. If the 311 query gets slower, cache results per address in `sessionStorage`.
-6. Bump `actions/checkout`, `setup-node`, `upload-pages-artifact` and `deploy-pages` to their Node 24 majors. CI warns that the v4/v3 releases target the deprecated Node 20. It still passes.
+1. Deploy the `tidyName` acronym fix (branch `fix-superfund-acronyms`). It waits for the user's OK, because a push to `main` publishes the live site. To deploy, run `git checkout main && git merge --ff-only fix-superfund-acronyms && git push origin main`.
+2. Add NYC's 2015 preliminary FEMA maps and the DEP stormwater flood maps (`9i7c-xyvv`) to the flood check. Stormwater flooding hits basement apartments far from the coast.
+3. Add NYC OER cleanup sites (`3279-pp7v`). It has no point column, so filter `latitude::number` and `longitude::number` in a bounding box.
+4. Add DOB violations, ECB violations, and the HPD registration contact (the real managing agent behind the LLC).
+5. Tune the thresholds against a set of known-bad and known-good buildings. They are first guesses.
+6. If the 311 query gets slower, cache results per address in `sessionStorage`.
+7. Bump `actions/checkout`, `setup-node`, `upload-pages-artifact` and `deploy-pages` to their Node 24 majors. CI warns that the v4/v3 releases target the deprecated Node 20. It still passes.
 
 ### Deploy notes
 

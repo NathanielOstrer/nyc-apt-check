@@ -65,9 +65,42 @@ function profileUrl(semsId: number | null): string | undefined {
   return semsId ? `https://cumulis.epa.gov/supercpad/cursites/csitinfo.cfm?id=${String(semsId).padStart(7, '0')}` : undefined
 }
 
-/** Title-case the EPA's all-caps names: "GOWANUS CANAL" becomes "Gowanus Canal". */
-function tidyName(name: string): string {
-  return name === name.toUpperCase() ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : name
+// Words that stay as written when an all-caps name is title-cased. Taken from the NY and NJ site
+// names in the boundary layer (checked 2026-10-18), plus common abbreviations and roman numerals.
+const KEEP_CASE: Record<string, string> = Object.fromEntries(
+  [
+    'BEC', 'CPS', 'DEC', 'DOD', 'DOE', 'DOT', 'EPA', 'FAA', 'FMC', 'GCL', 'GE', 'GEMS', 'GW', 'JIS', 'LCP', 'LF',
+    'LLC', 'MGP', 'NJ', 'NL', 'NY', 'NYC', 'PCB', 'PCE', 'PFAS', 'PFOA', 'PJP', 'SMS', 'TCE', 'US', 'USA',
+    'USARMY', 'USDOE', 'USDOT', 'USN', 'VOC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII',
+  ].map((w) => [w, w]),
+)
+KEEP_CASE.PCBS = 'PCBs'
+KEEP_CASE.VOCS = 'VOCs'
+
+// Short words that are lowercase inside a name ("King of Prussia"). "A" is left out: "Site A" is a label.
+const SMALL_WORDS = new Set(['AN', 'AND', 'AT', 'BY', 'FOR', 'IN', 'OF', 'ON', 'OR', 'THE', 'TO'])
+
+const capitalize = (w: string) => w[0] + w.slice(1).toLowerCase()
+
+/**
+ * Title-case the EPA's all-caps names: "GOWANUS CANAL" becomes "Gowanus Canal" and
+ * "HUDSON RIVER PCBS" becomes "Hudson River PCBs". Mixed-case names pass through unchanged.
+ */
+export function tidyName(name: string): string {
+  if (name !== name.toUpperCase()) return name
+  let first = true
+  return name.replace(/[A-Z0-9]+(?:'[A-Z]+)?/g, (word, index: number) => {
+    const isFirst = first
+    first = false
+    if (KEEP_CASE[word]) return KEEP_CASE[word]
+    if (/^\d/.test(word)) return word.toLowerCase() // 102ND -> 102nd
+    // A small word followed by a period is an initial, not a word.
+    if (!isFirst && SMALL_WORDS.has(word) && name[index + word.length] !== '.') return word.toLowerCase()
+    if (/^MC[A-Z]{2}/.test(word)) return `Mc${capitalize(word.slice(2))}` // MCGUIRE -> McGuire
+    const prefixed = /^([A-Z])'([A-Z]+)$/.exec(word) // D'IMPERIO -> D'Imperio
+    if (prefixed) return `${prefixed[1]}'${capitalize(prefixed[2])}`
+    return capitalize(word) // EMMELL'S -> Emmell's
+  })
 }
 
 export const superfund: Check = {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { E_DESIGNATIONS, eDesignation } from '../../src/checks/eDesignation'
 import { EVACUATION_ZONES, FEMA_FLOOD_ZONES, flood, SANDY_INUNDATION } from '../../src/checks/flood'
 import { DEC_REMEDIATION, decSiteUrl, stateCleanup } from '../../src/checks/stateCleanup'
-import { epaSiteUrl, SUPERFUND_BOUNDARIES, SUPERFUND_POINTS, superfund } from '../../src/checks/superfund'
+import { epaSiteUrl, SUPERFUND_BOUNDARIES, SUPERFUND_POINTS, superfund, tidyName } from '../../src/checks/superfund'
 import { arcgis, depsWith, PLACE, socrata, square } from './fakeFetch'
 
 const { lat, lon } = PLACE
@@ -23,6 +23,52 @@ function superfundDeps(boundaries: unknown[], points: unknown[] = []) {
   ])
 }
 
+describe('tidyName', () => {
+  // Real EPA boundary-layer names, paired with the EPA's own mixed-case spelling from the points layer.
+  it.each([
+    ['GOWANUS CANAL', 'Gowanus Canal'],
+    ['HUDSON RIVER PCBS', 'Hudson River PCBs'],
+    ['BLACK RIVER PCBS', 'Black River PCBs'],
+    ['GE MOREAU', 'GE Moreau'],
+    ['FMC CORP. (DUBLIN ROAD LANDFILL)', 'FMC Corp. (Dublin Road Landfill)'],
+    ['GCL TIE AND TREATING INC.', 'GCL Tie and Treating Inc.'],
+    ['KING OF PRUSSIA', 'King of Prussia'],
+    ['BROOKHAVEN NATIONAL LABORATORY (USDOE)', 'Brookhaven National Laboratory (USDOE)'],
+    ['U.S. RADIUM CORP.', 'U.S. Radium Corp.'],
+    ['W.R. GRACE & CO., INC./WAYNE INTERIM STORAGE SITE (USDOE)', 'W.R. Grace & Co., Inc./Wayne Interim Storage Site (USDOE)'],
+    ['A. O. POLYMER', 'A. O. Polymer'],
+    ['M&T DELISA LANDFILL', 'M&T Delisa Landfill'],
+    ["D'IMPERIO PROPERTY", "D'Imperio Property"],
+    ["EMMELL'S SEPTIC LANDFILL", "Emmell's Septic Landfill"],
+    ['MCGUIRE AIR FORCE BASE #1', 'McGuire Air Force Base #1'],
+    ['HOOKER (102ND STREET)', 'Hooker (102nd Street)'],
+    ['NAVAL WEAPONS STATION EARLE (SITE A)', 'Naval Weapons Station Earle (Site A)'],
+    ['DENZER & SCHAFER X-RAY CO.', 'Denzer & Schafer X-Ray Co.'],
+    ['VESTAL WATER SUPPLY WELL 1-1', 'Vestal Water Supply Well 1-1'],
+  ])('%s -> %s', (raw, expected) => {
+    expect(tidyName(raw)).toBe(expected)
+  })
+
+  it('keeps acronyms and roman numerals from the list', () => {
+    expect(tidyName('TEST MGP SITE II')).toBe('Test MGP Site II')
+    expect(tidyName('TEST PLANT LLC, NY AND NJ')).toBe('Test Plant LLC, NY and NJ')
+  })
+
+  it('lowercases a small word only inside the name', () => {
+    expect(tidyName('THE TEST DUMP')).toBe('The Test Dump')
+    expect(tidyName('OF TEST AND TEST')).toBe('Of Test and Test')
+  })
+
+  it('passes mixed-case names through unchanged', () => {
+    expect(tidyName('Hudson River PCBs')).toBe('Hudson River PCBs')
+    expect(tidyName('Test Creek')).toBe('Test Creek')
+  })
+
+  it('handles an empty name', () => {
+    expect(tidyName('')).toBe('')
+  })
+})
+
 describe('superfund', () => {
   it('is high when the address is inside a site', async () => {
     const { deps } = superfundDeps([boundary('NY1', 'TEST CANAL', square(lat, lon, 0.001))])
@@ -31,6 +77,13 @@ describe('superfund', () => {
     expect(r.summary).toBe('The address is inside the Test Canal Superfund site.')
     expect(r.details[0]).toEqual({ text: expect.stringContaining('the address is inside'), url: 'https://www.epa.example/superfund/NY1' })
     expect(r.mapFeatures).toHaveLength(1)
+  })
+
+  it('keeps acronyms in the summary and the map label', async () => {
+    const { deps } = superfundDeps([boundary('NY9', 'TEST RIVER PCBS', square(lat, lon, 0.001))])
+    const r = await superfund.run(PLACE, deps)
+    expect(r.summary).toBe('The address is inside the Test River PCBs Superfund site.')
+    expect(r.mapFeatures?.[0]).toMatchObject({ label: 'Test River PCBs' })
   })
 
   it('is medium within half a mile', async () => {
